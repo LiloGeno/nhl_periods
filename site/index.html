@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NHL Périodes</title>
+<meta name="description" content="Probabilité d'au moins un but dans chaque période des matchs NHL, forme des équipes et historique des paris.">
+<style>
+:root{
+  --bg:#f6f5f2; --surface:#ffffff; --surface-2:#f0efeb; --border:#e3e1dc;
+  --ink:#1c1b19; --ink-2:#52514e; --ink-3:#7d7b76;
+  --accent:#2a78d6; --accent-ink:#1d5fae; --accent-soft:#e6f0fb;
+  --orange:#eb6f14;
+  --won:#0b7a0b; --won-soft:#e5f4e5; --lost:#c43535; --lost-soft:#fbe9e9;
+  --warn-ink:#8a5a00; --warn-soft:#fff4dc; --warn-border:#f0d699;
+  --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121212; --surface:#1c1c1b; --surface-2:#252524; --border:#343432;
+    --ink:#f1f0ec; --ink-2:#b9b7b1; --ink-3:#8c8a85;
+    --accent:#5a9be6; --accent-ink:#8dbaf0; --accent-soft:#1d2b3d;
+    --orange:#f08a3e;
+    --won:#5cc45c; --won-soft:#1b2e1b; --lost:#ef6b6b; --lost-soft:#3a1f1f;
+    --warn-ink:#f2c86b; --warn-soft:#2e2615; --warn-border:#5a4a22;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121212; --surface:#1c1c1b; --surface-2:#252524; --border:#343432;
+  --ink:#f1f0ec; --ink-2:#b9b7b1; --ink-3:#8c8a85;
+  --accent:#5a9be6; --accent-ink:#8dbaf0; --accent-soft:#1d2b3d;
+  --orange:#f08a3e;
+  --won:#5cc45c; --won-soft:#1b2e1b; --lost:#ef6b6b; --lost-soft:#3a1f1f;
+  --warn-ink:#f2c86b; --warn-soft:#2e2615; --warn-border:#5a4a22;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 64px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 24px;margin-bottom:16px}
+h1{font-size:22px;line-height:1.2;margin:0;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--ink-3);margin-top:4px;letter-spacing:0}
+.meta{color:var(--ink-3);font-size:13px}
+button,select,input{font:inherit;color:inherit}
+
+/* filters */
+.filters{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;margin-bottom:16px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f label{font-size:12px;color:var(--ink-2);font-weight:600}
+.f select,.f input[type=number]{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;min-height:38px}
+.f input[type=number]{width:84px}
+.range-row{display:flex;align-items:center;gap:10px}
+.range-row input[type=range]{width:150px;accent-color:var(--accent)}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-2);min-height:38px}
+.check input{accent-color:var(--accent);width:18px;height:18px}
+.btn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:7px 12px;min-height:38px;cursor:pointer;color:var(--ink-2)}
+.btn:hover{background:var(--surface-2)}
+.rule{flex-basis:100%;font-size:13px;color:var(--ink-2);margin:0}
+.rule b{color:var(--ink)}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;cursor:pointer;color:var(--ink-2);font-weight:600;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel[hidden]{display:none}
+.lead{margin:0 0 14px;color:var(--ink-2)}
+.lead b{color:var(--ink)}
+
+/* game cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.out{opacity:.62}
+.card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.time{font-size:13px;color:var(--ink-3)}
+.badge{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.badge.pass{background:var(--accent-soft);color:var(--accent-ink)}
+.badge.fail{background:var(--surface-2);color:var(--ink-3)}
+.badge.won{background:var(--won-soft);color:var(--won)}
+.badge.lost{background:var(--lost-soft);color:var(--lost)}
+.teams{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.team{font-weight:700;font-size:17px}
+.team span{font-weight:400;font-size:12px;color:var(--ink-3);margin-left:6px}
+.form{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
+.dots{display:flex;gap:3px}
+.dots i{width:8px;height:8px;border-radius:2px;background:var(--border);display:block}
+.dots i.on{background:var(--accent)}
+.probs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--border);padding-top:12px}
+.prob .k{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
+.prob .v{font-size:20px;font-weight:700}
+.prob .v.small{font-size:15px}
+.prob .s{font-size:12px;color:var(--ink-3)}
+.periods{display:flex;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.periods span{background:var(--surface-2);border-radius:6px;padding:2px 8px}
+.note{background:var(--warn-soft);border:1px solid var(--warn-border);color:var(--warn-ink);border-radius:8px;padding:8px 10px;font-size:13px}
+.note b{font-weight:700}
+.why{font-size:12px;color:var(--ink-3)}
+.empty{background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;color:var(--ink-2)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow)}
+.kpi .k{font-size:12px;color:var(--ink-2);font-weight:600}
+.kpi .v{font-size:26px;font-weight:700;line-height:1.2;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--ink-3)}
+.row2{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:16px}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);min-width:0}
+.box h3{margin:0 0 2px;font-size:15px}
+.box p.sub{margin:0 0 10px;font-size:12px;color:var(--ink-3)}
+.dates{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.dates input[type=date]{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-height:38px}
+
+/* tables */
+.tw{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top}
+th{font-size:12px;color:var(--ink-2);font-weight:600;background:var(--surface-2);position:sticky;top:0}
+th.sort{cursor:pointer;user-select:none}
+th.sort:hover{color:var(--ink)}
+td.r,th.r{text-align:right}
+td.wrap-cell{white-space:normal;min-width:220px;color:var(--ink-2)}
+tr:last-child td{border-bottom:0}
+tr.dim td{color:var(--ink-3)}
+.more{display:block;margin:12px auto 0}
+
+/* chart */
+.chart svg{display:block;width:100%;max-width:760px;height:auto}
+.chart .axis{stroke:var(--border)}
+.chart text{fill:var(--ink-3);font-size:11px}
+.chart .bar{fill:var(--accent)}
+.chart .bar:hover{opacity:.8}
+.chart .pred{stroke:var(--orange);stroke-width:3}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--ink-2);margin-top:6px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block}
+.sw.line{height:3px;border-radius:0;background:var(--orange)}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:6px;opacity:0;transition:opacity .1s;z-index:10;max-width:240px}
+
+.foot{margin-top:28px;font-size:12px;color:var(--ink-3);line-height:1.6}
+@media (max-width:600px){
+  .filters{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;padding:12px}
+  .filters .f:nth-child(1){order:1}
+  .filters .f:nth-child(3){order:2}
+  .filters .f:nth-child(2){order:3;grid-column:1 / -1}
+  .filters .check{order:4;grid-column:1 / -1;min-height:30px}
+  .filters .btn{order:5;justify-self:start}
+  .filters .rule{order:6;grid-column:1 / -1}
+  .range-row input[type=range]{flex:1;width:auto}
+  .f select{width:100%}
+  td.wrap-cell{min-width:280px}
+  .grid{grid-template-columns:1fr}
+  .range-row input[type=range]{width:110px}
+  h1{font-size:19px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NHL — but à chaque période
+      <small>Pari « au moins un but en P1, P2 et P3 : Oui »</small></h1>
+    <div class="meta" id="meta">Chargement…</div>
+  </header>
+
+  <section class="filters" aria-label="Filtre de sélection">
+    <div class="f">
+      <label for="fHits">Forme mini (les 2 équipes)</label>
+      <select id="fHits"></select>
+    </div>
+    <div class="f">
+      <label for="fP">Probabilité mini</label>
+      <div class="range-row">
+        <input type="range" id="fPr" min="40" max="95" step="1" aria-label="Probabilité minimale">
+        <input type="number" id="fP" min="0" max="100" step="1" class="num"> %
+      </div>
+    </div>
+    <div class="f">
+      <label for="fModel">Modèle</label>
+      <select id="fModel">
+        <option value="either">L’un des deux</option>
+        <option value="both">Les deux</option>
+        <option value="poisson">Poisson</option>
+        <option value="empirical">Empirique</option>
+      </select>
+    </div>
+    <label class="check"><input type="checkbox" id="fAll"> Afficher aussi les matchs écartés</label>
+    <button class="btn" id="fReset" type="button">Réinitialiser</button>
+    <p class="rule" id="ruleText"></p>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="tonight" aria-selected="true">Ce soir</button>
+    <button class="tab" role="tab" data-tab="history" aria-selected="false">Historique</button>
+    <button class="tab" role="tab" data-tab="teams" aria-selected="false">Équipes</button>
+  </nav>
+
+  <section class="panel" id="p-tonight" role="tabpanel">
+    <p class="lead" id="tonightLead"></p>
+    <div class="grid" id="tonightGrid"></div>
+  </section>
+
+  <section class="panel" id="p-history" role="tabpanel" hidden>
+    <div class="dates">
+      <div class="f"><label for="hFrom">Du</label><input type="date" id="hFrom"></div>
+      <div class="f"><label for="hTo">Au</label><input type="date" id="hTo"></div>
+      <button class="btn" id="hSeason" type="button">Toute la saison</button>
+      <button class="btn" id="h7" type="button">7 derniers jours</button>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="row2">
+      <div class="box chart">
+        <h3>Taux de réussite selon la probabilité annoncée</h3>
+        <p class="sub" id="chartSub"></p>
+        <div id="chart"></div>
+        <div class="legend"><span><i class="sw"></i>Observed win rate</span><span><i class="sw line"></i>Mean predicted probability</span></div>
+      </div>
+    </div>
+    <div class="tw"><table id="hTable"></table></div>
+    <button class="btn more" id="hMore" type="button" hidden>Afficher plus</button>
+  </section>
+
+  <section class="panel" id="p-teams" role="tabpanel" hidden>
+    <p class="lead">% de matchs avec au moins un but (des deux équipes) dans la période. Clique sur un en-tête pour trier.</p>
+    <div class="tw"><table id="tTable"></table></div>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+(function () {
+  "use strict";
+  var DEF = { hits: 9, p: 70, model: "either", all: false };
+  var S = load();
+  var DATA = {};
+  var histShown = 100;
+  var teamSort = { key: "pct_goal_all3", dir: -1 };
+
+  function load() {
+    try { var x = JSON.parse(localStorage.getItem("nhlFilters") || "null"); if (x) return Object.assign({}, DEF, x); } catch (e) {}
+    return Object.assign({}, DEF);
+  }
+  function save() { try { localStorage.setItem("nhlFilters", JSON.stringify(S)); } catch (e) {} }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function pct(v, d) { return v == null ? "–" : (+v).toFixed(d == null ? 0 : d).replace(".", ",") + " %"; }
+  function odds(v) { return v == null || !isFinite(v) ? "–" : (+v).toFixed(2).replace(".", ","); }
+  function frDate(iso) { if (!iso) return ""; var p = iso.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; }
+  function frNotes(t) {
+    return esc(t || "")
+      .replace(/key F /g, "attaquant clé ").replace(/main G /g, "gardien n°1 ")
+      .replace(/% of goals\)/g, "% des buts)").replace(/% starts\)/g, "% des titularisations)")
+      .replace(/injury report: /g, "blessure : ").replace(/did not play last game/g, "absent au dernier match")
+      .replace(/on bench \(backup started\)/g, "sur le banc (remplaçant titulaire)")
+      .replace(/ absent(?=$| \|)/g, " absent")
+      .replace(/ \| /g, "<br>");
+  }
+  function hitsOf(g, side) { return g["game_1gpp_last10_" + side]; }
+  function gamesOf(g, side) { return g["games_last10_" + side]; }
+
+  // decision probability for the chosen model
+  function decisionP(g) {
+    var a = g.p_pois_all3, b = g.p_emp_all3;
+    if (S.model === "poisson") return a;
+    if (S.model === "empirical") return b;
+    if (a == null || b == null) return S.model === "either" ? (a == null ? b : a) : null;
+    return S.model === "either" ? Math.max(a, b) : Math.min(a, b);
+  }
+  function check(g) {
+    var why = [];
+    var hh = hitsOf(g, "home"), ah = hitsOf(g, "away");
+    if (hh == null || hh < S.hits) why.push("forme " + g.home + " " + (hh == null ? "?" : hh) + "/" + (gamesOf(g, "home") || 10));
+    if (ah == null || ah < S.hits) why.push("forme " + g.away + " " + (ah == null ? "?" : ah) + "/" + (gamesOf(g, "away") || 10));
+    var p = decisionP(g);
+    if (p == null) why.push("pas assez de matchs joués");
+    else if (!(p > S.p)) why.push("probabilité " + pct(p) + " ≤ " + S.p + " %");
+    return { ok: why.length === 0, why: why, p: p };
+  }
+
+  function dots(n, tot) {
+    var h = '<span class="dots" aria-hidden="true">';
+    for (var i = 0; i < (tot || 10); i++) h += '<i class="' + (i < n ? "on" : "") + '"></i>';
+    return h + "</span>";
+  }
+  function formLine(g, side) {
+    var n = hitsOf(g, side), t = gamesOf(g, side) || 10;
+    return '<div class="form">' + (n == null ? "<span>forme inconnue</span>" : dots(n, t) + '<span class="num">' + n + "/" + t + "</span>") + "</div>";
+  }
+
+  // ------------------------------------------------------------------ tonight
+  function renderTonight() {
+    var games = DATA.tonight || [];
+    var grid = $("tonightGrid");
+    if (!games.length) {
+      $("tonightLead").textContent = "";
+      grid.innerHTML = '<div class="empty">Aucun match NHL prévu le ' + frDate(DATA.meta.nhl_date) + ".</div>";
+      return;
+    }
+    var rows = games.map(function (g) { return { g: g, c: check(g) }; });
+    var pass = rows.filter(function (r) { return r.c.ok; });
+    $("tonightLead").innerHTML = "<b>" + pass.length + " match" + (pass.length > 1 ? "s" : "") + "</b> sur " + games.length +
+      " passe" + (pass.length > 1 ? "nt" : "") + " le filtre pour la nuit du " + frDate(DATA.meta.nhl_date) + " (heure de Paris).";
+    var show = S.all ? rows.slice().sort(function (a, b) { return (b.c.ok - a.c.ok) || ((b.c.p || 0) - (a.c.p || 0)); }) : pass;
+    if (!show.length) {
+      grid.innerHTML = '<div class="empty">Aucun match ne passe le filtre ce soir. Coche « Afficher aussi les matchs écartés » pour voir les autres.</div>';
+      return;
+    }
+    grid.innerHTML = show.map(function (r) { return card(r.g, r.c); }).join("");
+  }
+  function card(g, c) {
+    var h = '<article class="card' + (c.ok ? "" : " out") + '">';
+    h += '<div class="card-top"><span class="time num">' + esc(g.start || "") + "</span>" +
+      (c.ok ? '<span class="badge pass">✓ Passe le filtre</span>' : '<span class="badge fail">Écarté</span>') + "</div>";
+    h += '<div class="teams"><div class="team">' + esc(g.home) + "<span>domicile</span></div>" + formLine(g, "home") +
+      '<div class="team">' + esc(g.away) + "<span>extérieur</span></div>" + formLine(g, "away") + "</div>";
+    h += '<div class="probs">' +
+      '<div class="prob"><div class="k">Poisson</div><div class="v num">' + pct(g.p_pois_all3) + '</div><div class="s">cote mini ' + odds(g.min_odds_pois) + "</div></div>" +
+      '<div class="prob"><div class="k">Empirique</div><div class="v num">' + pct(g.p_emp_all3) + '</div><div class="s">cote mini ' + odds(g.min_odds_emp) + "</div></div>" +
+      '<div class="prob"><div class="k">Par période</div><div class="v small num">' + pct(g.p_pois_P1) + "</div><div class=\"s num\">" + pct(g.p_pois_P2) + " · " + pct(g.p_pois_P3) + "</div></div>" +
+      "</div>";
+    if (g.notes) h += '<div class="note"><b>⚠ Absence :</b> ' + frNotes(g.notes) + "</div>";
+    if (g.basis && g.basis.indexOf("all games") === 0) h += '<div class="why">Peu de matchs à domicile/extérieur : calcul sur tous les matchs de l’équipe.</div>';
+    if (!c.ok) h += '<div class="why">Écarté : ' + esc(c.why.join(", ")) + "</div>";
+    return h + "</article>";
+  }
+
+  // ------------------------------------------------------------------ history
+  function histRows() {
+    var f = $("hFrom").value, t = $("hTo").value;
+    return (DATA.season || []).filter(function (g) {
+      return g.p_pois_all3 != null && (!f || g.date >= f) && (!t || g.date <= t);
+    });
+  }
+  function renderHistory() {
+    var all = histRows();
+    var rows = all.map(function (g) { return { g: g, c: check(g) }; });
+    var pass = rows.filter(function (r) { return r.c.ok; });
+    var won = pass.filter(function (r) { return r.g.y_all3; }).length;
+    var allWon = rows.filter(function (r) { return r.g.y_all3; }).length;
+    var rate = pass.length ? 100 * won / pass.length : null;
+    var withOdds = pass.filter(function (r) { return r.g.odds_all3 != null; });
+    var profit = withOdds.reduce(function (s, r) { return s + (r.g.y_all3 ? r.g.odds_all3 - 1 : -1); }, 0);
+    var k = '<div class="kpi"><div class="k">Matchs retenus par le filtre</div><div class="v num">' + pass.length + '</div><div class="s">sur ' + rows.length + " matchs joués</div></div>" +
+      '<div class="kpi"><div class="k">Paris gagnés</div><div class="v num">' + (pass.length ? won + " / " + pass.length : "–") + '</div><div class="s">taux ' + pct(rate, 1) + "</div></div>" +
+      '<div class="kpi"><div class="k">Cote d’équilibre</div><div class="v num">' + (rate ? odds(100 / rate) : "–") + '</div><div class="s">au-dessus, le filtre aurait été rentable</div></div>' +
+      '<div class="kpi"><div class="k">Tous les matchs</div><div class="v num">' + pct(rows.length ? 100 * allWon / rows.length : null, 1) + '</div><div class="s">taux sans filtre (' + rows.length + " matchs)</div></div>";
+    if (withOdds.length) k += '<div class="kpi"><div class="k">Gain (cotes saisies)</div><div class="v num">' + (profit >= 0 ? "+" : "") + profit.toFixed(2).replace(".", ",") + ' u</div><div class="s">' + withOdds.length + " paris avec cote, mise 1</div></div>";
+    $("kpis").innerHTML = k;
+
+    renderChart(S.all ? rows : pass);
+
+    var list = (S.all ? rows : pass).slice().sort(function (a, b) { return a.g.date < b.g.date ? 1 : a.g.date > b.g.date ? -1 : 0; });
+    var head = "<thead><tr><th>Date</th><th>Match</th><th class=\"r\">Forme dom.</th><th class=\"r\">Forme ext.</th><th class=\"r\">Poisson</th><th class=\"r\">Empirique</th><th>Buts par période</th><th>Résultat</th><th class=\"r\">Cote</th><th>Absences</th></tr></thead>";
+    var body = list.slice(0, histShown).map(function (r) {
+      var g = r.g;
+      return '<tr class="' + (r.c.ok ? "" : "dim") + '"><td class="num">' + frDate(g.date) + "</td><td><b>" + esc(g.home) + "</b> – " + esc(g.away) + "</td>" +
+        '<td class="r num">' + (hitsOf(g, "home") == null ? "–" : hitsOf(g, "home") + "/" + gamesOf(g, "home")) + "</td>" +
+        '<td class="r num">' + (hitsOf(g, "away") == null ? "–" : hitsOf(g, "away") + "/" + gamesOf(g, "away")) + "</td>" +
+        '<td class="r num">' + pct(g.p_pois_all3) + '</td><td class="r num">' + pct(g.p_emp_all3) + "</td>" +
+        '<td class="num">' + esc(g.period_goals || "") + "</td>" +
+        "<td>" + (g.y_all3 ? '<span class="badge won">✓ Gagné</span>' : '<span class="badge lost">✗ Perdu</span>') + "</td>" +
+        '<td class="r num">' + odds(g.odds_all3) + "</td>" +
+        '<td class="wrap-cell">' + frNotes(g.notes) + "</td></tr>";
+    }).join("");
+    $("hTable").innerHTML = head + "<tbody>" + (body || '<tr><td colspan="10">Aucun match sur cette période avec ce filtre.</td></tr>') + "</tbody>";
+    $("hMore").hidden = list.length <= histShown;
+  }
+
+  function renderChart(rows) {
+    var bins = [];
+    for (var lo = 40; lo < 100; lo += 5) bins.push({ lo: lo, hi: lo + 5, n: 0, won: 0, sp: 0 });
+    rows.forEach(function (r) {
+      var p = r.c.p; if (p == null) return;
+      var i = Math.min(bins.length - 1, Math.max(0, Math.floor((p - 40) / 5)));
+      bins[i].n++; bins[i].won += r.g.y_all3 ? 1 : 0; bins[i].sp += p;
+    });
+    bins = bins.filter(function (b) { return b.n > 0; });
+    $("chartSub").textContent = "Modèle : " + $("fModel").selectedOptions[0].text + " · " + rows.length + " matchs · " +
+      (S.all ? "tous les matchs" : "matchs retenus par le filtre");
+    if (!bins.length) { $("chart").innerHTML = '<div class="empty">Pas de données.</div>'; return; }
+    var W = 720, H = 240, L = 44, R = 12, T = 12, B = 40, w = (W - L - R) / bins.length;
+    var y = function (v) { return T + (H - T - B) * (1 - v / 100); };
+    var s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Observed win rate by predicted probability bin">';
+    [0, 25, 50, 75, 100].forEach(function (v) {
+      s += '<line class="axis" x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '"/>' +
+        '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + "%</text>";
+    });
+    bins.forEach(function (b, i) {
+      var x = L + i * w, obs = 100 * b.won / b.n, pr = b.sp / b.n, bw = Math.max(6, w - 10);
+      var tip = b.lo + "–" + b.hi + " %: " + b.n + " games, " + b.won + " won (" + obs.toFixed(0) + " %), mean predicted " + pr.toFixed(0) + " %";
+      s += '<rect class="bar" data-tip="' + tip + '" x="' + (x + 5) + '" y="' + y(obs) + '" width="' + bw + '" height="' + (y(0) - y(obs)) + '" rx="4"/>';
+      s += '<line class="pred" x1="' + (x + 3) + '" x2="' + (x + w - 3) + '" y1="' + y(pr) + '" y2="' + y(pr) + '"/>';
+      s += '<text x="' + (x + w / 2) + '" y="' + (H - B + 16) + '" text-anchor="middle">' + b.lo + "–" + b.hi + "</text>";
+      s += '<text x="' + (x + w / 2) + '" y="' + (H - B + 30) + '" text-anchor="middle">n=' + b.n + "</text>";
+    });
+    s += '<text x="' + (L + (W - L - R) / 2) + '" y="' + (H - 1) + '" text-anchor="middle"></text></svg>';
+    $("chart").innerHTML = s + '<div class="s" style="font-size:11px;color:var(--ink-3);text-align:center">Predicted probability (%)</div>';
+  }
+
+  // -------------------------------------------------------------------- teams
+  function renderTeams() {
+    var t = (DATA.teams || []).slice();
+    var kp = DATA.key || [];
+    var cols = [
+      ["team", "Équipe", 0], ["gp", "MJ", 1], ["last10_all3", "Forme (10 dern.)", 1],
+      ["P1_pct_goal", "But en P1", 1], ["P2_pct_goal", "But en P2", 1], ["P3_pct_goal", "But en P3", 1],
+      ["pct_goal_all3", "But dans les 3", 1], ["P1_pct_scored", "Marque P1", 1], ["P2_pct_scored", "Marque P2", 1], ["P3_pct_scored", "Marque P3", 1]
+    ];
+    t.sort(function (a, b) { var x = a[teamSort.key], y = b[teamSort.key]; return (x < y ? -1 : x > y ? 1 : 0) * teamSort.dir; });
+    var head = "<thead><tr>" + cols.map(function (c) {
+      var arrow = teamSort.key === c[0] ? (teamSort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th class="sort' + (c[2] ? " r" : "") + '" data-k="' + c[0] + '">' + c[1] + arrow + "</th>";
+    }).join("") + "<th>Joueurs clés</th></tr></thead>";
+    var body = t.map(function (r) {
+      var k = kp.filter(function (p) { return p.team === r.team; }).map(function (p) {
+        return (p.role === "main goalie" ? "G " : "F ") + esc(p.name) + " (" + Math.round(100 * p.share) + " %)";
+      }).join(", ");
+      return "<tr>" + cols.map(function (c) {
+        var v = r[c[0]];
+        if (c[0] === "team") return "<td><b>" + esc(v) + "</b></td>";
+        if (c[0] === "gp") return '<td class="r num">' + v + "</td>";
+        if (c[0] === "last10_all3") return '<td class="r num">' + (v == null ? "–" : v + "/" + r.last10_games) + "</td>";
+        return '<td class="r num">' + pct(v) + "</td>";
+      }).join("") + '<td class="wrap-cell">' + k + "</td></tr>";
+    }).join("");
+    $("tTable").innerHTML = head + "<tbody>" + body + "</tbody>";
+  }
+
+  // -------------------------------------------------------------- controls
+  function ruleText() {
+    var m = { either: "Poisson ou empirique", both: "Poisson et empirique", poisson: "Poisson", empirical: "empirique" }[S.model];
+    $("ruleText").innerHTML = "Règle : les deux équipes ont eu au moins un but dans chaque période lors d’au moins <b>" + S.hits +
+      " de leurs 10 derniers matchs</b>, et la probabilité (" + m + ") dépasse <b>" + S.p + " %</b>.";
+  }
+  function renderAll() { ruleText(); renderTonight(); renderHistory(); renderTeams(); save(); }
+
+  function initControls() {
+    var sel = $("fHits");
+    for (var i = 0; i <= 10; i++) sel.insertAdjacentHTML("beforeend", '<option value="' + i + '">' + i + " / 10</option>");
+    function sync() { sel.value = S.hits; $("fP").value = S.p; $("fPr").value = S.p; $("fModel").value = S.model; $("fAll").checked = S.all; }
+    sync();
+    sel.onchange = function () { S.hits = +sel.value; renderAll(); };
+    $("fP").oninput = function () { var v = +$("fP").value; if (isFinite(v)) { S.p = v; $("fPr").value = v; renderAll(); } };
+    $("fPr").oninput = function () { S.p = +$("fPr").value; $("fP").value = S.p; renderAll(); };
+    $("fModel").onchange = function () { S.model = $("fModel").value; renderAll(); };
+    $("fAll").onchange = function () { S.all = $("fAll").checked; renderAll(); };
+    $("fReset").onclick = function () { S = Object.assign({}, DEF); sync(); renderAll(); };
+    $("hFrom").onchange = $("hTo").onchange = function () { histShown = 100; renderHistory(); };
+    $("hMore").onclick = function () { histShown += 200; renderHistory(); };
+    $("hSeason").onclick = function () { setRange(null); };
+    $("h7").onclick = function () { setRange(7); };
+    document.querySelectorAll(".tab").forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll(".tab").forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+        document.querySelectorAll(".panel").forEach(function (p) { p.hidden = p.id !== "p-" + b.dataset.tab; });
+      };
+    });
+    $("tTable").addEventListener("click", function (e) {
+      var th = e.target.closest("th.sort"); if (!th) return;
+      var k = th.dataset.k; teamSort = { key: k, dir: teamSort.key === k ? -teamSort.dir : (k === "team" ? 1 : -1) }; renderTeams();
+    });
+    var tip = $("tip");
+    $("chart").addEventListener("mousemove", function (e) {
+      var t = e.target.getAttribute && e.target.getAttribute("data-tip");
+      if (!t) { tip.style.opacity = 0; return; }
+      tip.textContent = t; tip.style.opacity = 1;
+      tip.style.left = Math.min(e.clientX + 12, window.innerWidth - 250) + "px"; tip.style.top = (e.clientY + 12) + "px";
+    });
+    $("chart").addEventListener("mouseleave", function () { tip.style.opacity = 0; });
+  }
+  function setRange(days) {
+    var dates = (DATA.season || []).map(function (g) { return g.date; }).sort();
+    if (!dates.length) return;
+    var last = dates[dates.length - 1];
+    $("hTo").value = last;
+    if (days) { var d = new Date(last + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - (days - 1)); $("hFrom").value = d.toISOString().slice(0, 10); }
+    else $("hFrom").value = dates[0];
+    histShown = 100; renderHistory();
+  }
+
+  function getJSON(name) {
+    return fetch("data/" + name + "?v=" + Date.now()).then(function (r) { if (!r.ok) throw new Error(name + " " + r.status); return r.json(); });
+  }
+  Promise.all(["meta.json", "tonight.json", "season.json", "teams.json", "key_players.json"].map(getJSON))
+    .then(function (x) {
+      DATA = { meta: x[0], tonight: x[1], season: x[2], teams: x[3], key: x[4] };
+      var m = DATA.meta;
+      $("meta").innerHTML = "Mis à jour le " + esc(m.generated_at_paris) + " · " + m.finished_games + " matchs joués (dernier : " + frDate(m.last_game_date) + ")";
+      $("foot").innerHTML = "Données : API publique de la NHL et rapport de blessures ESPN (non officiel). Probabilités calculées uniquement avec les matchs joués avant chaque date. " +
+        "Joueur clé : attaquant impliqué (but ou passe) dans ≥ " + Math.round(100 * m.key_share) + " % des buts de son équipe ; gardien principal : titulaire dans ≥ " + Math.round(100 * m.goalie_share) + " % des matchs. " +
+        "Moyenne de la ligue « but dans les 3 périodes » : " + pct(m.league.pct_goal_all3, 1) + ". Les tendances passées ne garantissent pas les résultats : mise uniquement ce que tu peux te permettre de perdre. Version " + esc(m.version) + ".";
+      initControls();
+      setRange(null);
+      renderAll();
+    })
+    .catch(function (e) {
+      $("meta").textContent = "";
+      $("tonightGrid").innerHTML = '<div class="empty">Impossible de charger les données (' + esc(e.message) + "). Si tu as ouvert le fichier directement depuis ton disque, passe par l’adresse GitHub Pages.</div>";
+    });
+})();
+</script>
+</body>
+</html>
