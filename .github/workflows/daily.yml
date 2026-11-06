@@ -1,1 +1,72 @@
+name: Daily NHL update
 
+on:
+  schedule:
+    # Times are UTC. Paris = UTC+1 in winter (UTC+2 in summer).
+    - cron: "17 7 * * *"    # ~08:17 Paris: last night's results + tonight's games
+    - cron: "43 16 * * *"   # ~17:43 Paris: refresh injury notes before tonight's games
+  workflow_dispatch:         # "Run workflow" button in the Actions tab
+
+permissions:
+  contents: write            # commit the prediction log and the data
+  pages: write               # publish the web page
+  id-token: write
+
+concurrency:
+  group: nhl-daily
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      NHL_SEASONS: "20262027"   # e.g. "20252026 20262027" to add last season
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true   # fast binary packages
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: rlib-${{ runner.os }}-v1
+
+      - name: Install R packages
+        run: Rscript -e 'for (p in c("jsonlite","dplyr","tidyr","ggplot2")) if (!requireNamespace(p, quietly = TRUE)) install.packages(p)'
+
+      # Downloaded play-by-play files are kept between runs (never committed)
+      - name: Restore game cache
+        uses: actions/cache@v4
+        with:
+          path: nhl_cache
+          key: nhl-cache-${{ github.run_id }}
+          restore-keys: nhl-cache-
+
+      - name: Update data and predictions
+        run: Rscript scripts/daily.R
+
+      - name: Commit log and data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nhl_predictions_log.csv site/data
+          git diff --cached --quiet || git commit -m "Daily update $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git pull --rebase --autostash
+          git push
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
